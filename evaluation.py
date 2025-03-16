@@ -6,7 +6,7 @@ import numpy as np
 # evaluation.py
 import os
 import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc
 
 def calculate_metrics(eval_score_path):
     """Calculate performance metrics from evaluation scores file"""
@@ -39,9 +39,9 @@ def calculate_metrics(eval_score_path):
     for filename in filenames:
         # The base filename might contain path information like "Truthful/sample.wav"
         # or it might just be the filename with path info stripped
-        if "truth" in filename or "Truthful" in filename:
+        if "truth" in filename.lower() or "truthful" in filename.lower():
             ground_truth.append("Truthful")
-        elif "lie" in filename or "Deceptive" in filename:
+        elif "lie" in filename.lower() or "deceptive" in filename.lower():
             ground_truth.append("Deceptive")
         else:
             # If path info is stripped, we can't determine ground truth from filename
@@ -63,6 +63,116 @@ def calculate_metrics(eval_score_path):
     }
     
     return metrics
+
+def calculate_lie_detection_metrics(eval_score_path, output_file=None):
+    """
+    Calculate comprehensive metrics for lie detection including EER and ROC AUC.
+    
+    Args:
+        eval_score_path: Path to the evaluation scores file
+        output_file: Optional path to write detailed results
+        
+    Returns:
+        Dictionary containing metrics including EER, AUC, and other performance metrics
+    """
+    # Check if file exists
+    if not os.path.exists(eval_score_path):
+        raise FileNotFoundError(f"Score file not found: {eval_score_path}")
+    
+    # Read scores file
+    with open(eval_score_path, "r") as f:
+        lines = f.readlines()
+    
+    filenames = []
+    predictions = []
+    scores = []
+    
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) >= 3:
+            filename = parts[0]
+            prediction = parts[1]
+            score = float(parts[2])
+            
+            filenames.append(filename)
+            predictions.append(prediction)
+            scores.append(score)
+    
+    # Extract ground truth from filenames
+    ground_truth = []
+    for filename in filenames:
+        if "truth" in filename.lower() or "truthful" in filename.lower():
+            ground_truth.append("Truthful")
+        elif "lie" in filename.lower() or "deceptive" in filename.lower():
+            ground_truth.append("Deceptive")
+        else:
+            print(f"Warning: Cannot determine ground truth from filename: {filename}")
+            ground_truth.append("Deceptive" if prediction == "Truthful" else "Truthful")
+    
+    # Convert to binary for metrics calculation
+    y_true = np.array([1 if label == "Truthful" else 0 for label in ground_truth])
+    y_pred = np.array([1 if label == "Truthful" else 0 for label in predictions])
+    y_scores = np.array(scores)
+    
+    # Calculate standard metrics
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    
+    # Calculate ROC curve and AUC
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    roc_auc = auc(fpr, tpr)
+    
+    # Calculate EER
+    # Separate scores for truthful and deceptive samples
+    truthful_scores = y_scores[y_true == 1]
+    deceptive_scores = y_scores[y_true == 0]
+    
+    if len(truthful_scores) > 0 and len(deceptive_scores) > 0:
+        eer, eer_threshold = compute_eer(truthful_scores, deceptive_scores)
+    else:
+        eer, eer_threshold = 0.5, 0.5  # Default if no samples of one class
+    
+    # Compile all metrics
+    metrics = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "eer": eer,
+        "eer_threshold": eer_threshold,
+        "auc": roc_auc
+    }
+    
+    # Write detailed results to file if requested
+    if output_file:
+        with open(output_file, "w") as f:
+            f.write("\nLIE DETECTION METRICS\n")
+            f.write(f"\tAccuracy\t= {accuracy*100:8.3f}%\n")
+            f.write(f"\tPrecision\t= {precision*100:8.3f}%\n")
+            f.write(f"\tRecall\t\t= {recall*100:8.3f}%\n")
+            f.write(f"\tF1 Score\t= {f1*100:8.3f}%\n")
+            f.write(f"\tEER\t\t= {eer*100:8.3f}%\n")
+            f.write(f"\tROC AUC\t\t= {roc_auc:8.3f}\n")
+            f.write(f"\tEER Threshold\t= {eer_threshold:8.3f}\n")
+            
+            # Add confusion matrix information
+            true_positives = np.sum((y_true == 1) & (y_pred == 1))
+            false_positives = np.sum((y_true == 0) & (y_pred == 1))
+            true_negatives = np.sum((y_true == 0) & (y_pred == 0))
+            false_negatives = np.sum((y_true == 1) & (y_pred == 0))
+            
+            f.write("\nCONFUSION MATRIX\n")
+            f.write(f"\tTrue Positives (Truthful correctly identified)\t= {true_positives}\n")
+            f.write(f"\tFalse Positives (Deceptive misclassified as Truthful)\t= {false_positives}\n")
+            f.write(f"\tTrue Negatives (Deceptive correctly identified)\t= {true_negatives}\n")
+            f.write(f"\tFalse Negatives (Truthful misclassified as Deceptive)\t= {false_negatives}\n")
+            
+        print(f"Detailed metrics saved to {output_file}")
+    
+    return metrics
+
 def calculate_tDCF_EER(cm_scores_file,
                        asv_score_file,
                        output_file,
