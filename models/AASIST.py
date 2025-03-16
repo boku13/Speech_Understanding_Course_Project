@@ -471,6 +471,19 @@ class Model(nn.Module):
         super().__init__()
 
         self.d_args = d_args
+        
+        # Set default values for required parameters if not provided
+        if "filts" not in d_args:
+            d_args["filts"] = [32, [32, 32], [64, 64], [128, 128], [128, 128]]
+        if "gat_dims" not in d_args:
+            d_args["gat_dims"] = [64, 32]
+        if "pool_ratios" not in d_args:
+            d_args["pool_ratios"] = [0.5, 0.7, 0.5, 0.5]
+        if "temperatures" not in d_args:
+            d_args["temperatures"] = [2.0, 2.0, 100.0, 100.0]
+        if "first_conv" not in d_args:
+            d_args["first_conv"] = 128
+            
         filts = d_args["filts"]
         gat_dims = d_args["gat_dims"]
         pool_ratios = d_args["pool_ratios"]
@@ -515,15 +528,20 @@ class Model(nn.Module):
         self.HtrgGAT_layer_ST22 = HtrgGraphAttentionLayer(
             gat_dims[1], gat_dims[1], temperature=temperatures[2])
 
-        self.pool_S = GraphPool(pool_ratios[0], gat_dims[0], 0.3)
-        self.pool_T = GraphPool(pool_ratios[1], gat_dims[0], 0.3)
-        self.pool_hS1 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
-        self.pool_hT1 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
+        # Set dropout values from config or use defaults
+        gnn_dropout = d_args.get("gnn_dropout", 0.3)
+        
+        self.pool_S = GraphPool(pool_ratios[0], gat_dims[0], gnn_dropout)
+        self.pool_T = GraphPool(pool_ratios[1], gat_dims[0], gnn_dropout)
+        self.pool_hS1 = GraphPool(pool_ratios[2], gat_dims[1], gnn_dropout)
+        self.pool_hT1 = GraphPool(pool_ratios[2], gat_dims[1], gnn_dropout)
 
-        self.pool_hS2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
-        self.pool_hT2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
+        self.pool_hS2 = GraphPool(pool_ratios[2], gat_dims[1], gnn_dropout)
+        self.pool_hT2 = GraphPool(pool_ratios[2], gat_dims[1], gnn_dropout)
 
-        self.out_layer = nn.Linear(5 * gat_dims[1], 2)
+        # Use num_classes from config or default to 2
+        num_classes = d_args.get("num_classes", 2)
+        self.out_layer = nn.Linear(5 * gat_dims[1], num_classes)
 
     def forward(self, x, Freq_aug=False):
 
