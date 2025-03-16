@@ -114,6 +114,14 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
     y_pred = np.array([1 if label == "Truthful" else 0 for label in predictions])
     y_scores = np.array(scores)
     
+    # Count truthful and deceptive samples
+    truthful_count = np.sum(y_true == 1)
+    deceptive_count = np.sum(y_true == 0)
+    
+    # Count predictions
+    truthful_pred_count = np.sum(y_pred == 1)
+    deceptive_pred_count = np.sum(y_pred == 0)
+    
     # Calculate standard metrics
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, zero_division=0)
@@ -142,7 +150,11 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
         "f1": f1,
         "eer": eer,
         "eer_threshold": eer_threshold,
-        "auc": roc_auc
+        "auc": roc_auc,
+        "truthful_count": int(truthful_count),
+        "deceptive_count": int(deceptive_count),
+        "truthful_pred_count": int(truthful_pred_count),
+        "deceptive_pred_count": int(deceptive_pred_count)
     }
     
     # Write detailed results to file if requested
@@ -157,6 +169,13 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
             f.write(f"\tROC AUC\t\t= {roc_auc:8.3f}\n")
             f.write(f"\tEER Threshold\t= {eer_threshold:8.3f}\n")
             
+            # Add class distribution information
+            f.write("\nCLASS DISTRIBUTION\n")
+            f.write(f"\tTruthful samples\t= {truthful_count} ({truthful_count/(truthful_count+deceptive_count)*100:.1f}%)\n")
+            f.write(f"\tDeceptive samples\t= {deceptive_count} ({deceptive_count/(truthful_count+deceptive_count)*100:.1f}%)\n")
+            f.write(f"\tTruthful predictions\t= {truthful_pred_count} ({truthful_pred_count/(truthful_pred_count+deceptive_pred_count)*100:.1f}%)\n")
+            f.write(f"\tDeceptive predictions\t= {deceptive_pred_count} ({deceptive_pred_count/(truthful_pred_count+deceptive_pred_count)*100:.1f}%)\n")
+            
             # Add confusion matrix information
             true_positives = np.sum((y_true == 1) & (y_pred == 1))
             false_positives = np.sum((y_true == 0) & (y_pred == 1))
@@ -168,6 +187,13 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
             f.write(f"\tFalse Positives (Deceptive misclassified as Truthful)\t= {false_positives}\n")
             f.write(f"\tTrue Negatives (Deceptive correctly identified)\t= {true_negatives}\n")
             f.write(f"\tFalse Negatives (Truthful misclassified as Deceptive)\t= {false_negatives}\n")
+            
+            # Add score distribution information
+            f.write("\nSCORE DISTRIBUTION\n")
+            f.write(f"\tMin score\t= {min(scores):.4f}\n")
+            f.write(f"\tMax score\t= {max(scores):.4f}\n")
+            f.write(f"\tMean score\t= {np.mean(scores):.4f}\n")
+            f.write(f"\tStd score\t= {np.std(scores):.4f}\n")
             
         print(f"Detailed metrics saved to {output_file}")
     
