@@ -23,7 +23,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchcontrib.optim import SWA
 
 from data_utils import (Dataset_RLDD_train, Dataset_RLDD_devNeval, lie_list)
-from evaluation import calculate_metrics
+from evaluation import calculate_metrics, compute_eer, calculate_tDCF_EER, calculate_lie_detection_metrics
 from utils import create_optimizer, seed_worker, set_seed, str_to_bool
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -94,13 +94,21 @@ def main(args: argparse.Namespace) -> None:
         # Generate predictions
         produce_evaluation_file(eval_loader, model, device, eval_score_path)
         
-        # Calculate metrics
-        metrics = calculate_metrics(eval_score_path)
-        print(f"Evaluation results: {metrics}")
+        # Calculate comprehensive metrics
+        metrics = calculate_lie_detection_metrics(
+            eval_score_path, 
+            output_file=model_tag / "detailed_evaluation_results.txt"
+        )
         
-        # Write results to file
-        with open(model_tag / "evaluation_results.txt", "w") as f:
-            f.write(json.dumps(metrics, indent=4))
+        print(f"Evaluation results:")
+        print(f"  Accuracy: {metrics['accuracy']*100:.3f}%")
+        print(f"  EER: {metrics['eer']*100:.3f}%")
+        print(f"  AUC: {metrics['auc']:.3f}")
+        print(f"  F1 Score: {metrics['f1']:.3f}")
+        
+        # Write summary results to file
+        with open(model_tag / "evaluation_summary.json", "w") as f:
+            json.dump(metrics, f, indent=4)
         
         print("DONE.")
         sys.exit(0)
@@ -111,7 +119,9 @@ def main(args: argparse.Namespace) -> None:
     optimizer_swa = SWA(optimizer)
 
     best_dev_acc = 0.
+    best_dev_eer = 1.0  # Lower is better for EER
     best_eval_acc = 0.
+    best_eval_eer = 1.0
     n_swa_update = 0  # number of snapshots of model to use in SWA
     f_log = open(model_tag / "metric_log.txt", "a")
     f_log.write("=" * 5 + "\n")
@@ -129,45 +139,77 @@ def main(args: argparse.Namespace) -> None:
         # Validate
         produce_evaluation_file(dev_loader, model, device,
                               metric_path / "dev_score.txt")
-        dev_metrics = calculate_metrics(metric_path / "dev_score.txt")
-        dev_acc = dev_metrics["accuracy"]
         
-        print("DONE.\nLoss:{:.5f}, dev_accuracy: {:.3f}".format(
-            running_loss, dev_acc))
+        # Calculate comprehensive metrics
+        dev_metrics = calculate_lie_detection_metrics(
+            metric_path / "dev_score.txt",
+            output_file=metric_path / f"dev_metrics_epoch_{epoch}.txt"
+        )
+        
+        dev_acc = dev_metrics["accuracy"]
+        dev_eer = dev_metrics["eer"]
+        
+        print("DONE.\nLoss:{:.5f}, dev_accuracy: {:.3f}%, dev_eer: {:.3f}%, dev_auc: {:.3f}".format(
+            running_loss, dev_acc * 100, dev_eer * 100, dev_metrics["auc"]))
         
         writer.add_scalar("loss", running_loss, epoch)
         writer.add_scalar("dev_accuracy", dev_acc, epoch)
+        writer.add_scalar("dev_eer", dev_eer * 100, epoch)
+        writer.add_scalar("dev_auc", dev_metrics["auc"], epoch)
         writer.add_scalar("dev_precision", dev_metrics["precision"], epoch)
         writer.add_scalar("dev_recall", dev_metrics["recall"], epoch)
         writer.add_scalar("dev_f1", dev_metrics["f1"], epoch)
 
+        # Save model if dev accuracy or EER improves
+        model_improved = False
+        
         if best_dev_acc <= dev_acc:
-            print("Best model found at epoch", epoch)
+            print("Best accuracy model found at epoch", epoch)
             best_dev_acc = dev_acc
             torch.save(model.state_dict(),
-                     model_save_path / "epoch_{}_{:03.3f}.pth".format(epoch, dev_acc))
+                     model_save_path / "epoch_{}_acc_{:03.3f}.pth".format(epoch, dev_acc * 100))
+            model_improved = True
+            
+        if best_dev_eer >= dev_eer:
+            print("Best EER model found at epoch", epoch)
+            best_dev_eer = dev_eer
+            torch.save(model.state_dict(),
+                     model_save_path / "epoch_{}_eer_{:03.3f}.pth".format(epoch, dev_eer * 100))
+            model_improved = True
 
-            # do evaluation whenever best model is renewed
-            if str_to_bool(config["eval_all_best"]):
-                produce_evaluation_file(eval_loader, model, device, eval_score_path)
-                eval_metrics = calculate_metrics(eval_score_path)
-                eval_acc = eval_metrics["accuracy"]
-
-                log_text = "epoch{:03d}, ".format(epoch)
-                if eval_acc > best_eval_acc:
-                    log_text += "best accuracy, {:.4f}%".format(eval_acc)
-                    best_eval_acc = eval_acc
-                    torch.save(model.state_dict(),
-                             model_save_path / "best.pth")
-                if len(log_text) > 0:
-                    print(log_text)
-                    f_log.write(log_text + "\n")
+        # do evaluation whenever best model is renewed
+        if model_improved and str_to_bool(config["eval_all_best"]):
+            produce_evaluation_file(eval_loader, model, device, eval_score_path)
+            
+            # Calculate comprehensive metrics
+            eval_metrics = calculate_lie_detection_metrics(
+                eval_score_path,
+                output_file=metric_path / f"eval_metrics_epoch_{epoch}.txt"
+            )
+            
+            eval_acc = eval_metrics["accuracy"]
+            eval_eer = eval_metrics["eer"]
+            
+            log_text = "epoch{:03d}, ".format(epoch)
+            if eval_acc > best_eval_acc:
+                log_text += "best accuracy, {:.4f}%, ".format(eval_acc * 100)
+                best_eval_acc = eval_acc
+                
+            if eval_eer < best_eval_eer:
+                log_text += "best EER, {:.4f}%, ".format(eval_eer * 100)
+                best_eval_eer = eval_eer
+                torch.save(model.state_dict(), model_save_path / "best.pth")
+                
+            if len(log_text) > 0:
+                print(log_text)
+                f_log.write(log_text + "\n")
 
             print("Saving epoch {} for swa".format(epoch))
             optimizer_swa.update_swa()
             n_swa_update += 1
         
         writer.add_scalar("best_dev_accuracy", best_dev_acc, epoch)
+        writer.add_scalar("best_dev_eer", best_dev_eer * 100, epoch)
 
     print("Start final evaluation")
     epoch += 1
@@ -176,21 +218,33 @@ def main(args: argparse.Namespace) -> None:
         optimizer_swa.bn_update(trn_loader, model, device=device)
     
     produce_evaluation_file(eval_loader, model, device, eval_score_path)
-    eval_metrics = calculate_metrics(eval_score_path)
+    
+    # Calculate comprehensive metrics
+    eval_metrics = calculate_lie_detection_metrics(
+        eval_score_path,
+        output_file=model_tag / "final_evaluation_results.txt"
+    )
+    
     eval_acc = eval_metrics["accuracy"]
+    eval_eer = eval_metrics["eer"]
     
     f_log = open(model_tag / "metric_log.txt", "a")
     f_log.write("=" * 5 + "\n")
-    f_log.write("Accuracy: {:.3f}, F1: {:.3f}".format(eval_acc, eval_metrics["f1"]))
+    f_log.write("Accuracy: {:.3f}%, EER: {:.3f}%, AUC: {:.3f}, F1: {:.3f}\n".format(
+        eval_acc * 100, eval_eer * 100, eval_metrics["auc"], eval_metrics["f1"]))
     f_log.close()
 
     torch.save(model.state_dict(), model_save_path / "swa.pth")
 
     if eval_acc >= best_eval_acc:
         best_eval_acc = eval_acc
+    
+    if eval_eer <= best_eval_eer:
+        best_eval_eer = eval_eer
         torch.save(model.state_dict(), model_save_path / "best.pth")
     
-    print("Experiment finished. Best accuracy: {:.3f}".format(best_eval_acc))
+    print("Experiment finished. Best accuracy: {:.3f}%, Best EER: {:.3f}%".format(
+        best_eval_acc * 100, best_eval_eer * 100))
 
 
 def get_model(model_config: Dict, device: torch.device):
