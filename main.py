@@ -324,7 +324,7 @@ def produce_evaluation_file(
                 raise
         
         # For evaluation set, batch_info contains file keys
-        if isinstance(batch_info, list) or (isinstance(batch_info, torch.Tensor) and batch_info.dtype == torch.string):
+        if isinstance(batch_info, list) or (isinstance(batch_info, torch.Tensor)):
             fname_list.extend(batch_info)
             label_list.extend(["Deceptive"] * len(batch_info))  # Placeholder, will be ignored
         # For training/validation set, batch_info contains labels

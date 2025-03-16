@@ -75,7 +75,7 @@ def evaluate_eer(score_file, output_file=None):
     # Load scores
     data = np.genfromtxt(score_file, dtype=str)
     keys = data[:, 1]  # Labels (Deceptive/Truthful)
-    scores = data[:, 2].astype(np.float)  # Prediction scores
+    scores = data[:, 2].astype(np.float64)  # Prediction scores
     
     # Extract truthful and deceptive scores
     # Higher score should indicate stronger support for the truthful class

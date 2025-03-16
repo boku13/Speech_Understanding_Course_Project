@@ -1,0 +1,4 @@
+
+LIE DETECTION SYSTEM
+	EER		=      nan % (Equal error rate)
+	Threshold	=   0.5356
