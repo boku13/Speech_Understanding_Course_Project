@@ -22,7 +22,7 @@ def lie_list(dataset_path: str):
 
     for label, subdir in enumerate(["Deceptive", "Truthful"]):  # Deceptive = 0, Truthful = 1
         dir_path = dataset_path / subdir
-        mp3_files = list(dir_path.glob("*.mp3"))  # Get all MP3 files
+        mp3_files = sorted(list(dir_path.glob("*.mp3")))  # Get all MP3 files
 
         for file_path in mp3_files:
             key = file_path.stem  # File name without extension

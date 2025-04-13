@@ -92,8 +92,7 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
         if len(parts) >= 3:
             filename = parts[0]
             prediction = parts[1]
-            print(parts[2])
-            score = float(parts[3])
+            score = float(parts[2])
             
             filenames.append(filename)
             predictions.append(prediction)

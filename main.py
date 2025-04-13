@@ -370,7 +370,7 @@ def get_loader(
     trn_loader = DataLoader(train_set,
                           batch_size=config["batch_size"],
                           shuffle=True,
-                          drop_last=True,
+                          drop_last=False,
                           pin_memory=True,
                           worker_init_fn=seed_worker,
                           generator=gen)
