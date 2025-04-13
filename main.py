@@ -361,7 +361,7 @@ def get_loader(
     
     # Get first sample to inspect
     if len(train_set) > 0:
-        sample_x, sample_y = train_set[0]
+        sample_x, sample_y, _= train_set[0]
         print(f"Sample input shape: {sample_x.shape}")
         print(f"Sample label: {sample_y}")
 
@@ -429,7 +429,7 @@ def produce_evaluation_file(
     # Import softmax here to avoid scope issues
     from scipy.special import softmax as scipy_softmax
     
-    for batch_x, utt_id in data_loader:
+    for batch_x, utt_id, label in data_loader:
         batch_size = batch_x.size(0)
         
         # Print detailed information for first batch only
@@ -563,9 +563,9 @@ def train_epoch(
     first_batch = True
     
     # Use Mean Squared Error or Binary Cross Entropy loss for one-hot encoded labels
-    criterion = nn.MSELoss()  # or nn.BCEWithLogitsLoss() if using logits
+    criterion = torch.nn.BCELoss()# or nn.BCEWithLogitsLoss() if using logits
     
-    for batch_x, batch_y in trn_loader:
+    for batch_x, key, batch_y in trn_loader:
         batch_size = batch_x.size(0)
         num_total += batch_size
         ii += 1
@@ -585,7 +585,9 @@ def train_epoch(
         batch_probs = torch.nn.functional.softmax(batch_out, dim=1)
         
         # Store outputs for analysis
-        all_outputs.append(batch_out.detach().cpu().numpy())
+        # Store softmax probabilities instead of raw logits
+        all_outputs.append(batch_probs.detach().cpu().numpy())
+        # all_outputs.append(batch_out.detach().cpu().numpy())
         all_labels.append(batch_y.detach().cpu().numpy())
         
         # Print detailed information for first batch only
@@ -595,8 +597,6 @@ def train_epoch(
             print(f"  Label shape: {batch_y.shape}")
             print(f"  Input dtype: {batch_x.dtype}")
             print(f"  Label dtype: {batch_y.dtype}")
-            print(f"  Input min: {batch_x.min().item()}, max: {batch_x.max().item()}")
-            print(f"  Input mean: {batch_x.mean().item()}, std: {batch_x.std().item()}")
             print(f"  One-hot Labels: {batch_y.tolist()}")
             first_batch = False
         
@@ -610,9 +610,6 @@ def train_epoch(
             for i in range(min(5, len(batch_probs))):
                 print(f"  Sample {i}: {batch_probs[i].detach().cpu().numpy()} -> Label: {batch_y[i].tolist()}")
             
-            print(f"Batch_out {batch_out}")
-            print(f"Batch_y {batch_y}")
-
         # Option 1: Calculate loss using softmax and MSE for one-hot encoded labels
         batch_loss = criterion(batch_probs, batch_y)
         

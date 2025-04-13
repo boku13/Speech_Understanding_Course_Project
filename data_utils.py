@@ -93,7 +93,7 @@ class Dataset_RLDD_train(Dataset):
         y = torch.zeros(2)
         y[label_int] = 1.0
         
-        return x_inp, y
+        return x_inp, key, y
 
 
 class Dataset_RLDD_devNeval(Dataset):
@@ -127,4 +127,4 @@ class Dataset_RLDD_devNeval(Dataset):
 
         # Apply padding/truncation
         x_inp = Tensor(pad_random(samples, self.cut))
-        return x_inp, key
+        return x_inp, key, key
