@@ -472,26 +472,11 @@ def produce_evaluation_file(
 
     # Debug: Print score distribution to check if all predictions are the same
     scores_array = np.array(score_list)
-    min_score = scores_array.min()
-    max_score = scores_array.max()
-    mean_score = scores_array.mean()
-    std_score = scores_array.std()
     
     # Analyze raw outputs
     raw_outputs = np.vstack(raw_outputs_list)
     softmax_outputs = np.vstack(softmax_probs_list)
-    
-    # Calculate statistics for each output dimension
-    output_means = np.mean(raw_outputs, axis=0)
-    output_stds = np.std(raw_outputs, axis=0)
-    output_mins = np.min(raw_outputs, axis=0)
-    output_maxs = np.max(raw_outputs, axis=0)
-    
-    print(f"Raw output statistics:")
-    print(f"  Means: {output_means}")
-    print(f"  Stds:  {output_stds}")
-    print(f"  Mins:  {output_mins}")
-    print(f"  Maxs:  {output_maxs}")
+
     
     # Statistics for softmax outputs
     softmax_means = np.mean(softmax_outputs, axis=0)
@@ -501,21 +486,19 @@ def produce_evaluation_file(
     print(f"  Means: {softmax_means}")
     print(f"  Stds:  {softmax_stds}")
     
-    print("fname", fname_list)
-    # Save predictions with raw outputs and softmax probabilities ssdfsdf
+    # Save predictions with raw outputs and softmax probabilities
     with open(save_path, "w") as fh:
         for i, (fn, sco, pred_label) in enumerate(zip(fname_list, score_list, pred_labels_list)):
             # Get raw output and softmax probabilities for this sample
             raw_output = raw_outputs[i]
             softmax_probs = softmax_outputs[i]
 
-            print(f"Bruhhhhhhhhhhhh {fn} {pred_label} {sco:.6f} {raw_output[0]:.6f} {raw_output[1]:.6f} {softmax_probs[0]:.6f} {softmax_probs[1]:.6f}\n")
+            print(f"working!! {fn} {pred_label} {sco:.6f} {raw_output[0]:.6f} {raw_output[1]:.6f} {softmax_probs[0]:.6f} {softmax_probs[1]:.6f}\n")
             
             # Format: filename pred_label truthful_score raw_output_0 raw_output_1 softmax_prob_0 softmax_prob_1
             fh.write(f"{fn} {pred_label} {sco:.6f} {raw_output[0]:.6f} {raw_output[1]:.6f} {softmax_probs[0]:.6f} {softmax_probs[1]:.6f}\n")
     
     print(f"Scores saved to {save_path}")
-    print(f"Score stats - Min: {min_score:.4f}, Max: {max_score:.4f}, Mean: {mean_score:.4f}, Std: {std_score:.4f}")
     
     # Count predictions
     truthful_count = sum(1 for label in pred_labels_list if label == "Truthful")
