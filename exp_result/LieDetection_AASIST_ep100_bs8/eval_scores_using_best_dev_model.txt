@@ -1,19 +1,19 @@
-trial_lie_011 Deceptive -0.748101
-trial_lie_015 Deceptive -1.018235
-trial_lie_019 Deceptive -1.370470
-trial_lie_022 Deceptive -0.877967
-trial_lie_039 Deceptive -0.978797
-trial_lie_040 Deceptive -1.296886
-trial_lie_043 Deceptive -1.013805
-trial_lie_049 Deceptive -0.801191
-trial_lie_052 Deceptive -0.720241
-trial_lie_061 Deceptive -1.284009
-trial_truth_004 Deceptive -0.673791
-trial_truth_006 Deceptive -0.763516
-trial_truth_007 Deceptive -0.869258
-trial_truth_008 Deceptive -0.944307
-trial_truth_014 Deceptive -1.049558
-trial_truth_026 Deceptive -0.689303
-trial_truth_035 Deceptive -0.868625
-trial_truth_040 Deceptive -0.909933
-trial_truth_047 Deceptive -0.929582
+trial_lie_011 Truthful 0.573878 -0.821626 -0.523933 0.426122 0.573878
+trial_lie_015 Deceptive 0.437757 -0.491504 -0.741773 0.562243 0.437757
+trial_lie_019 Deceptive 0.436883 -0.502862 -0.756686 0.563117 0.436883
+trial_lie_022 Deceptive 0.417695 -0.331921 -0.664163 0.582305 0.417695
+trial_lie_039 Truthful 0.540547 -0.790085 -0.627539 0.459453 0.540547
+trial_lie_040 Deceptive 0.433126 -0.310057 -0.579166 0.566874 0.433126
+trial_lie_043 Deceptive 0.314673 -0.165152 -0.943516 0.685327 0.314673
+trial_lie_049 Deceptive 0.421283 -0.655306 -0.972814 0.578717 0.421283
+trial_lie_052 Truthful 0.508080 -0.751127 -0.718803 0.491920 0.508080
+trial_lie_061 Deceptive 0.442863 -0.453003 -0.682554 0.557137 0.442863
+trial_truth_004 Truthful 0.516412 -0.724908 -0.659236 0.483588 0.516412
+trial_truth_006 Deceptive 0.460086 -0.660396 -0.820393 0.539914 0.460086
+trial_truth_007 Truthful 0.522816 -0.659616 -0.568289 0.477184 0.522816
+trial_truth_008 Truthful 0.512276 -0.748038 -0.698923 0.487724 0.512276
+trial_truth_014 Deceptive 0.479481 -0.634074 -0.716195 0.520519 0.479481
+trial_truth_026 Truthful 0.522517 -0.661298 -0.571169 0.477483 0.522517
+trial_truth_035 Deceptive 0.457018 -0.816449 -0.988802 0.542982 0.457018
+trial_truth_040 Deceptive 0.490988 -0.769436 -0.805486 0.509012 0.490988
+trial_truth_047 Truthful 0.613874 -0.756010 -0.292386 0.386126 0.613874

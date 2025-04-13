@@ -78,7 +78,7 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
     # Check if file exists
     if not os.path.exists(eval_score_path):
         raise FileNotFoundError(f"Score file not found: {eval_score_path}")
-    
+    print("HEELLLLLLLLLLLLLLLLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",eval_score_path)
     # Read scores file
     with open(eval_score_path, "r") as f:
         lines = f.readlines()
@@ -92,7 +92,8 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
         if len(parts) >= 3:
             filename = parts[0]
             prediction = parts[1]
-            score = float(parts[2])
+            print(parts[2])
+            score = float(parts[3])
             
             filenames.append(filename)
             predictions.append(prediction)

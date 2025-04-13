@@ -1,3 +1,10 @@
 =====
-epoch000, 
-epoch001, 
+=====
+=====
+=====
+=====
+epoch000, best accuracy: 47.37%, best EER: 68.33%
+epoch001, best EER: 31.67%
+=====
+epoch000, best accuracy: 47.37%, best EER: 68.33%
+epoch001, best EER: 31.67%

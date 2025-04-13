@@ -84,7 +84,15 @@ class Dataset_RLDD_train(Dataset):
 
         # Apply random padding/truncation
         x_inp = Tensor(pad_random(samples, self.cut))
-        y = self.labels[key]  # Get label
+        
+        # Get integer label
+        label_int = self.labels[key]
+        
+        # Convert to one-hot encoded tensor
+        # [1, 0] for Deceptive (0), [0, 1] for Truthful (1)
+        y = torch.zeros(2)
+        y[label_int] = 1.0
+        
         return x_inp, y
 
 

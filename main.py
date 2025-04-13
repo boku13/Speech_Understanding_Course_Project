@@ -6,6 +6,7 @@ Adapted from AASIST
 Copyright (c) 2021-present NAVER Corp.
 MIT license
 """
+import numpy as np
 import argparse
 import json
 import os
@@ -70,7 +71,7 @@ def main(args: argparse.Namespace) -> None:
 
     # set device
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("Device: {}".format(device))
+    # print("Device: {}".format(device))
     if device == "cpu" and not args.allow_cpu:
         raise ValueError("GPU not detected! Use --allow_cpu to run on CPU.")
 
@@ -296,14 +297,32 @@ def main(args: argparse.Namespace) -> None:
     print("Experiment finished.")
 
 
+# def get_model(model_config: Dict, device: torch.device):
+#     """Define DNN model architecture"""
+#     module = import_module("models.{}".format(model_config["architecture"]))
+#     _model = getattr(module, "Model")
+#     model = _model(model_config).to(device)
+#     nb_params = sum([param.view(-1).size()[0] for param in model.parameters()])
+#     print("no. model params:{}".format(nb_params))
+
+#     return model
+
 def get_model(model_config: Dict, device: torch.device):
     """Define DNN model architecture"""
     module = import_module("models.{}".format(model_config["architecture"]))
     _model = getattr(module, "Model")
     model = _model(model_config).to(device)
     nb_params = sum([param.view(-1).size()[0] for param in model.parameters()])
-    print("no. model params:{}".format(nb_params))
-
+    # print("no. model params:{}".format(nb_params))
+    
+    # Print model architecture
+    # print("=== Model Architecture ===")
+    # print(model)
+    
+    # Print model config
+    # print("=== Model Configuration ===")
+    # print(model_config)
+    
     return model
 
 
@@ -320,8 +339,32 @@ def get_loader(
     # Get training data
     d_label_trn, file_train = lie_list(train_data_path)
     print("no. training files:", len(file_train))
-
+    
+    # Add print statements to inspect dataset contents
+    print("=== Training Dataset Inspection ===")
+    print(f"First 5 file paths: {file_train[:5]}")
+    print(f"Label distribution: {sum(d_label_trn.values())} labels")
+    label_counts = {"Truthful": 0, "Deceptive": 0}
+    for label in d_label_trn.values():
+        if label == 1:
+            label_counts["Truthful"] += 1
+        else:
+            label_counts["Deceptive"] += 1
+    print(f"Label counts: {label_counts}")
+    
+    # Existing code continues...
     train_set = Dataset_RLDD_train(file_list=file_train, labels=d_label_trn)
+    
+    # Add print to inspect dataset structure
+    print(f"Training dataset type: {type(train_set)}")
+    print(f"Training dataset length: {len(train_set)}")
+    
+    # Get first sample to inspect
+    if len(train_set) > 0:
+        sample_x, sample_y = train_set[0]
+        print(f"Sample input shape: {sample_x.shape}")
+        print(f"Sample label: {sample_y}")
+
     gen = torch.Generator()
     gen.manual_seed(seed)
     trn_loader = DataLoader(train_set,
@@ -365,29 +408,59 @@ def produce_evaluation_file(
     max_samples: int = None) -> None:
     """
     Perform evaluation and save the score to a file
-    
-    Args:
-        data_loader: DataLoader containing evaluation data
-        model: Model to evaluate
-        device: Device to run evaluation on
-        save_path: Path to save evaluation results
-        max_samples: Maximum number of samples to evaluate (for large training sets)
     """
     model.eval()
+    
+    # Print evaluation info
+    print("=== Evaluation Data Inspection ===")
+    print(f"Dataloader length: {len(data_loader)} batches")
+    print(f"Max samples: {max_samples}")
     
     fname_list = []
     score_list = []
     raw_outputs_list = []
+    softmax_probs_list = []
+    pred_labels_list = []
     sample_count = 0
     
+    # Print detailed info for first batch only
+    first_batch = True
+
+    # Import softmax here to avoid scope issues
+    from scipy.special import softmax as scipy_softmax
+    
     for batch_x, utt_id in data_loader:
+        batch_size = batch_x.size(0)
+        
+        # Print detailed information for first batch only
+        if first_batch:
+            print(f"First evaluation batch:")
+            print(f"  Input shape: {batch_x.shape}")
+            print(f"  Utterance IDs: {utt_id[:5]}")  # Print first 5 IDs
+            print(f"  Input dtype: {batch_x.dtype}")
+            print(f"  Input min: {batch_x.min().item()}, max: {batch_x.max().item()}")
+            print(f"  Input mean: {batch_x.mean().item()}, std: {batch_x.std().item()}")
+            first_batch = False
+        
         batch_x = batch_x.to(device)
+
         with torch.no_grad():
             _, batch_out = model(batch_x)
             # Store raw outputs for analysis
-            raw_outputs_list.append(batch_out.cpu().numpy())
+            batch_out_np = batch_out.cpu().numpy()
+            raw_outputs_list.append(batch_out_np)
+            
+            # Apply softmax to get probabilities
+            batch_probs = scipy_softmax(batch_out_np, axis=1)
+            softmax_probs_list.append(batch_probs)
+            
             # Get scores for truthful class (index 1)
-            batch_score = (batch_out[:, 1]).data.cpu().numpy().ravel()
+            batch_score = batch_probs[:, 1].ravel()
+            
+            # Get predicted labels using argmax of softmax probabilities
+            batch_preds = np.argmax(batch_probs, axis=1)
+            batch_pred_labels = ["Truthful" if pred == 1 else "Deceptive" for pred in batch_preds]
+            pred_labels_list.extend(batch_pred_labels)
         
         # add outputs
         fname_list.extend(utt_id)
@@ -398,7 +471,6 @@ def produce_evaluation_file(
             break
 
     # Debug: Print score distribution to check if all predictions are the same
-    import numpy as np
     scores_array = np.array(score_list)
     min_score = scores_array.min()
     max_score = scores_array.max()
@@ -407,6 +479,7 @@ def produce_evaluation_file(
     
     # Analyze raw outputs
     raw_outputs = np.vstack(raw_outputs_list)
+    softmax_outputs = np.vstack(softmax_probs_list)
     
     # Calculate statistics for each output dimension
     output_means = np.mean(raw_outputs, axis=0)
@@ -420,9 +493,7 @@ def produce_evaluation_file(
     print(f"  Mins:  {output_mins}")
     print(f"  Maxs:  {output_maxs}")
     
-    # Apply softmax to get probabilities
-    from scipy.special import softmax
-    softmax_outputs = softmax(raw_outputs, axis=1)
+    # Statistics for softmax outputs
     softmax_means = np.mean(softmax_outputs, axis=0)
     softmax_stds = np.std(softmax_outputs, axis=0)
     
@@ -430,20 +501,25 @@ def produce_evaluation_file(
     print(f"  Means: {softmax_means}")
     print(f"  Stds:  {softmax_stds}")
     
-    # Save predictions
+    print("fname", fname_list)
+    # Save predictions with raw outputs and softmax probabilities ssdfsdf
     with open(save_path, "w") as fh:
-        for fn, sco in zip(fname_list, score_list):
-            # Higher score means more likely to be truthful
-            # Use a threshold of 0.5 for binary classification
-            pred_label = "Truthful" if sco > 0.5 else "Deceptive"
-            fh.write(f"{fn} {pred_label} {sco:.6f}\n")
+        for i, (fn, sco, pred_label) in enumerate(zip(fname_list, score_list, pred_labels_list)):
+            # Get raw output and softmax probabilities for this sample
+            raw_output = raw_outputs[i]
+            softmax_probs = softmax_outputs[i]
+
+            print(f"Bruhhhhhhhhhhhh {fn} {pred_label} {sco:.6f} {raw_output[0]:.6f} {raw_output[1]:.6f} {softmax_probs[0]:.6f} {softmax_probs[1]:.6f}\n")
+            
+            # Format: filename pred_label truthful_score raw_output_0 raw_output_1 softmax_prob_0 softmax_prob_1
+            fh.write(f"{fn} {pred_label} {sco:.6f} {raw_output[0]:.6f} {raw_output[1]:.6f} {softmax_probs[0]:.6f} {softmax_probs[1]:.6f}\n")
     
     print(f"Scores saved to {save_path}")
     print(f"Score stats - Min: {min_score:.4f}, Max: {max_score:.4f}, Mean: {mean_score:.4f}, Std: {std_score:.4f}")
     
     # Count predictions
-    truthful_count = sum(1 for s in score_list if s > 0.5)
-    deceptive_count = sum(1 for s in score_list if s <= 0.5)
+    truthful_count = sum(1 for label in pred_labels_list if label == "Truthful")
+    deceptive_count = sum(1 for label in pred_labels_list if label == "Deceptive")
     
     # Calculate percentage
     total_count = truthful_count + deceptive_count
@@ -478,12 +554,16 @@ def train_epoch(
     all_outputs = []
     all_labels = []
 
-    # set objective (Loss) functions
-    # Adjust class weights based on your dataset balance - this is important!
-    # Using equal weights (0.5, 0.5) might be causing the model to predict only one class
-    # Try using (0.3, 0.7) or (0.7, 0.3) depending on your class distribution
-    weight = torch.FloatTensor([0.3, 0.7]).to(device)  # Adjust these weights based on your dataset
-    criterion = nn.CrossEntropyLoss(weight=weight)
+    # Print batch info for first batch
+    print("=== Batch Content Inspection ===")
+    print(f"Dataloader length: {len(trn_loader)} batches")
+    print(f"Batch size: {config['batch_size']}")
+    
+    # Add debug print for first batch only
+    first_batch = True
+    
+    # Use Mean Squared Error or Binary Cross Entropy loss for one-hot encoded labels
+    criterion = nn.MSELoss()  # or nn.BCEWithLogitsLoss() if using logits
     
     for batch_x, batch_y in trn_loader:
         batch_size = batch_x.size(0)
@@ -491,33 +571,54 @@ def train_epoch(
         ii += 1
         
         batch_x = batch_x.to(device)
-        batch_y = batch_y.view(-1).type(torch.int64).to(device)
+        batch_y = batch_y.to(device)  # One-hot encoded labels
         
-        # Count labels in this batch
+        # Count labels in this batch (for monitoring class balance)
         for label in batch_y.cpu().numpy():
-            label_counts[label] += 1
+            label_index = label.argmax()  # Get the index of the max value
+            label_counts[label_index] += 1
         
         # Forward pass
         _, batch_out = model(batch_x, Freq_aug=str_to_bool(config["freq_aug"]))
+        
+        # Apply softmax to get probabilities
+        batch_probs = torch.nn.functional.softmax(batch_out, dim=1)
         
         # Store outputs for analysis
         all_outputs.append(batch_out.detach().cpu().numpy())
         all_labels.append(batch_y.detach().cpu().numpy())
         
-        # Debug: Print model outputs to check if they're all the same
-        if ii == 1:  # Only for the first batch
+        # Print detailed information for first batch only
+        if first_batch:
+            print(f"First batch:")
+            print(f"  Input shape: {batch_x.shape}")
+            print(f"  Label shape: {batch_y.shape}")
+            print(f"  Input dtype: {batch_x.dtype}")
+            print(f"  Label dtype: {batch_y.dtype}")
+            print(f"  Input min: {batch_x.min().item()}, max: {batch_x.max().item()}")
+            print(f"  Input mean: {batch_x.mean().item()}, std: {batch_x.std().item()}")
+            print(f"  One-hot Labels: {batch_y.tolist()}")
+            first_batch = False
+        
+        # Debug: Print model outputs for first batch
+        if ii == 1:
             print(f"Model output examples (first batch):")
             for i in range(min(5, len(batch_out))):
-                print(f"  Sample {i}: {batch_out[i].detach().cpu().numpy()} -> Label: {batch_y[i].item()}")
+                print(f"  Sample {i}: {batch_out[i].detach().cpu().numpy()} -> Label: {batch_y[i].tolist()}")
                 
-            # Print softmax outputs to check if they're very close to 0 or 1
-            softmax_outputs = torch.nn.functional.softmax(batch_out, dim=1).detach().cpu().numpy()
             print(f"Softmax outputs (first batch):")
-            for i in range(min(5, len(softmax_outputs))):
-                print(f"  Sample {i}: {softmax_outputs[i]} -> Label: {batch_y[i].item()}")
+            for i in range(min(5, len(batch_probs))):
+                print(f"  Sample {i}: {batch_probs[i].detach().cpu().numpy()} -> Label: {batch_y[i].tolist()}")
+            
+            print(f"Batch_out {batch_out}")
+            print(f"Batch_y {batch_y}")
+
+        # Option 1: Calculate loss using softmax and MSE for one-hot encoded labels
+        batch_loss = criterion(batch_probs, batch_y)
         
-        # Calculate loss
-        batch_loss = criterion(batch_out, batch_y)
+        # Option 2: Alternatively, use CrossEntropyLoss with label indices
+        # label_indices = torch.argmax(batch_y, dim=1)
+        # batch_loss = nn.CrossEntropyLoss()(batch_out, label_indices)
         
         # Backward pass and optimization
         running_loss += batch_loss.item() * batch_size
@@ -543,11 +644,11 @@ def train_epoch(
     # Analyze model outputs
     import numpy as np
     all_outputs = np.vstack([o for o in all_outputs])
-    all_labels = np.concatenate([l for l in all_labels])
+    all_labels = np.vstack([l for l in all_labels])
     
     # Calculate mean and std of outputs for each class
-    deceptive_outputs = all_outputs[all_labels == 0]
-    truthful_outputs = all_outputs[all_labels == 1]
+    deceptive_outputs = all_outputs[all_labels[:, 0] > 0.5]  # Where first column is 1 (Deceptive)
+    truthful_outputs = all_outputs[all_labels[:, 1] > 0.5]   # Where second column is 1 (Truthful)
     
     if len(deceptive_outputs) > 0:
         deceptive_mean = np.mean(deceptive_outputs, axis=0)
