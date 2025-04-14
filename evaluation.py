@@ -1,9 +1,6 @@
 import sys
 import os
-
 import numpy as np
-
-# evaluation.py
 import os
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc
@@ -78,7 +75,7 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
     # Check if file exists
     if not os.path.exists(eval_score_path):
         raise FileNotFoundError(f"Score file not found: {eval_score_path}")
-    print("HEELLLLLLLLLLLLLLLLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",eval_score_path)
+    # print("HEELLLLLLLLLLLLLLLLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",eval_score_path)
     # Read scores file
     with open(eval_score_path, "r") as f:
         lines = f.readlines()
@@ -107,7 +104,6 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
             ground_truth.append("Deceptive")
         else:
             print(f"Warning: Cannot determine ground truth from filename: {filename}")
-            ground_truth.append("Deceptive" if prediction == "Truthful" else "Truthful")
     
     # Convert to binary for metrics calculation
     y_true = np.array([1 if label == "Truthful" else 0 for label in ground_truth])
@@ -136,9 +132,11 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
     # Separate scores for truthful and deceptive samples
     truthful_scores = y_scores[y_true == 1]
     deceptive_scores = y_scores[y_true == 0]
+    # print("heheheheheheheheheheheheheheheheheheheheheheheheh")
+    
     
     if len(truthful_scores) > 0 and len(deceptive_scores) > 0:
-        eer, eer_threshold = compute_eer(truthful_scores, deceptive_scores)
+        eer, eer_threshold = compute_eer_fixed(truthful_scores, deceptive_scores)
     else:
         eer, eer_threshold = 0.5, 0.5  # Default if no samples of one class
     
@@ -249,8 +247,8 @@ def calculate_tDCF_EER(cm_scores_file,
 
     # EERs of the standalone systems and fix ASV operating point to
     # EER threshold
-    eer_asv, asv_threshold = compute_eer(tar_asv, non_asv)
-    eer_cm = compute_eer(bona_cm, spoof_cm)[0]
+    eer_asv, asv_threshold = compute_eer_fixed(tar_asv, non_asv)
+    eer_cm = compute_eer_fixed(bona_cm, spoof_cm)[0]
 
     attack_types = [f'A{_id:02d}' for _id in range(7, 20)]
     if printout:
@@ -260,7 +258,7 @@ def calculate_tDCF_EER(cm_scores_file,
         }
 
         eer_cm_breakdown = {
-            attack_type: compute_eer(bona_cm,
+            attack_type: compute_eer_fixed(bona_cm,
                                      spoof_cm_breakdown[attack_type])[0]
             for attack_type in attack_types
         }
@@ -346,15 +344,39 @@ def compute_det_curve(target_scores, nontarget_scores):
     return frr, far, thresholds
 
 
-def compute_eer(target_scores, nontarget_scores):
-    """ Returns equal error rate (EER) and the corresponding threshold. """
-    frr, far, thresholds = compute_det_curve(target_scores, nontarget_scores)
-    abs_diffs = np.abs(frr - far)
-    min_index = np.argmin(abs_diffs)
-    eer = np.mean((frr[min_index], far[min_index]))
-    return eer, thresholds[min_index]
+def compute_eer_fixed(target_scores, nontarget_scores):
+    """Compute EER using scikit-learn's ROC curve implementation"""
+    # Create binary labels (1 for target/truthful, 0 for nontarget/deceptive)
+    y_true = np.concatenate([np.ones(len(target_scores)), np.zeros(len(nontarget_scores))])
+    # Concatenate all scores (keeping target scores first, then nontarget scores)
+    y_scores = np.concatenate([target_scores, nontarget_scores])
+    
+    # Compute ROC curve points
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    fnr = 1 - tpr
+    
+    # Print values to help with debugging
+    print("FPR:", fpr)
+    print("FNR:", fnr)
+    print("Thresholds:", thresholds)
 
-
+    # Handle the case where there might not be a point where FPR and FNR cross
+    if np.min(np.abs(fpr - fnr)) > 0.1:  # Significant gap between curves
+        print("Warning: FPR and FNR curves don't cross smoothly. EER may be approximate.")
+        
+        # If we have few points, try to interpolate
+        if len(fpr) < 10:
+            print("Few threshold points available. Consider using more data.")
+    
+    # Find the threshold where FPR and FNR are closest
+    eer_threshold_idx = np.nanargmin(np.abs(fpr - fnr))
+    eer = (fpr[eer_threshold_idx] + fnr[eer_threshold_idx]) / 2
+    
+    # Add more informative output
+    print(f"EER calculation point: FPR={fpr[eer_threshold_idx]:.4f}, FNR={fnr[eer_threshold_idx]:.4f}")
+    print(f"Calculated EER: {eer:.4f} at threshold: {thresholds[eer_threshold_idx]:.4f}")
+    
+    return eer, thresholds[eer_threshold_idx]
 def compute_tDCF(bonafide_score_cm, spoof_score_cm, Pfa_asv, Pmiss_asv,
                  Pmiss_spoof_asv, cost_model, print_cost):
     """

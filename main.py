@@ -24,7 +24,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchcontrib.optim import SWA
 
 from data_utils import (Dataset_RLDD_train, Dataset_RLDD_devNeval, lie_list)
-from evaluation import calculate_metrics, compute_eer, calculate_tDCF_EER, calculate_lie_detection_metrics
+from evaluation import compute_eer_fixed, calculate_tDCF_EER, calculate_lie_detection_metrics
 from utils import create_optimizer, seed_worker, set_seed, str_to_bool
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -79,7 +79,7 @@ def main(args: argparse.Namespace) -> None:
     model = get_model(model_config, device)
 
     # define dataloaders
-    trn_loader, val_loader, eval_loader = get_loader(
+    trn_loader, val_loader, test_loader = get_loader(
         database_path, args.seed, config)
 
     # evaluates pretrained model and exit script
@@ -93,7 +93,7 @@ def main(args: argparse.Namespace) -> None:
         print("Start evaluation...")
         
         # Generate predictions
-        produce_evaluation_file(eval_loader, model, device, eval_score_path)
+        produce_evaluation_file(test_loader, model, device, eval_score_path)
         
         # Calculate comprehensive metrics
         metrics = calculate_lie_detection_metrics(
@@ -221,7 +221,7 @@ def main(args: argparse.Namespace) -> None:
         # do evaluation whenever best model is renewed
         if model_improved and str_to_bool(config["eval_all_best"]):
             print("Evaluating on test set...")
-            produce_evaluation_file(eval_loader, model, device, eval_score_path)
+            produce_evaluation_file(test_loader, model, device, eval_score_path)
             
             # Calculate comprehensive metrics
             eval_metrics = calculate_lie_detection_metrics(
@@ -265,7 +265,7 @@ def main(args: argparse.Namespace) -> None:
         optimizer_swa.swap_swa_sgd()
         optimizer_swa.bn_update(trn_loader, model, device=device)
     
-    produce_evaluation_file(eval_loader, model, device, eval_score_path)
+    produce_evaluation_file(test_loader, model, device, eval_score_path)
     
     # Calculate comprehensive metrics
     eval_metrics = calculate_lie_detection_metrics(
@@ -626,7 +626,6 @@ def train_epoch(
     all_outputs = np.vstack([o for o in all_outputs])
     all_labels = np.vstack([l for l in all_labels])
     
-    # Calculate mean and std of outputs for each class
     deceptive_outputs = all_outputs[all_labels[:, 0] > 0.5]  # Where first column is 1 (Deceptive)
     truthful_outputs = all_outputs[all_labels[:, 1] > 0.5]   # Where second column is 1 (Truthful)
     
