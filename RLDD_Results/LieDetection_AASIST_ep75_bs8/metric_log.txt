@@ -1,0 +1,7 @@
+=====
+epoch000, best accuracy: 47.37%, best EER: 36.11%
+epoch004, best accuracy: 57.89%
+epoch011, best EER: 26.11%
+epoch068, best accuracy: 63.16%
+=====
+Accuracy: 63.158%, EER: 52.778%, AUC: 0.567, F1: 0.462

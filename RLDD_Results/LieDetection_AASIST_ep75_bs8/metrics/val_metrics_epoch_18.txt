@@ -1,0 +1,27 @@
+
+LIE DETECTION METRICS
+	Accuracy	=   61.111%
+	Precision	=   66.667%
+	Recall		=   44.444%
+	F1 Score	=   53.333%
+	EER		=   16.667%
+	ROC AUC		=    0.827
+	EER Threshold	=    0.465
+
+CLASS DISTRIBUTION
+	Truthful samples	= 9 (50.0%)
+	Deceptive samples	= 9 (50.0%)
+	Truthful predictions	= 6 (33.3%)
+	Deceptive predictions	= 12 (66.7%)
+
+CONFUSION MATRIX
+	True Positives (Truthful correctly identified)	= 4
+	False Positives (Deceptive misclassified as Truthful)	= 2
+	True Negatives (Deceptive correctly identified)	= 7
+	False Negatives (Truthful misclassified as Deceptive)	= 5
+
+SCORE DISTRIBUTION
+	Min score	= 0.3048
+	Max score	= 0.8488
+	Mean score	= 0.4849
+	Std score	= 0.1306
