@@ -144,6 +144,40 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
 
 
 
+def compute_eer_fixed(target_scores, nontarget_scores):
+    """Compute EER using scikit-learn's ROC curve implementation"""
+    # Create binary labels (1 for target/truthful, 0 for nontarget/deceptive)
+    y_true = np.concatenate([np.ones(len(target_scores)), np.zeros(len(nontarget_scores))])
+    # Concatenate all scores (keeping target scores first, then nontarget scores)
+    y_scores = np.concatenate([target_scores, nontarget_scores])
+    
+    # Compute ROC curve points
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    fnr = 1 - tpr
+    
+    # Print values to help with debugging
+    print("FPR shape:", fpr.shape)
+    print("FNR shape:", fnr.shape)
+    print("Thresholds shape:", thresholds.shape)
+
+    # Handle the case where there might not be a point where FPR and FNR cross
+    if np.min(np.abs(fpr - fnr)) > 0.1:  # Significant gap between curves
+        print("Warning: FPR and FNR curves don't cross smoothly. EER may be approximate.")
+        
+        # If we have few points, try to interpolate
+        if len(fpr) < 10:
+            print("Few threshold points available. Consider using more data.")
+    
+    # Find the threshold where FPR and FNR are closest
+    eer_threshold_idx = np.nanargmin(np.abs(fpr - fnr))
+    eer = (fpr[eer_threshold_idx] + fnr[eer_threshold_idx]) / 2
+    
+    # Add more informative output
+    print(f"EER calculation point: FPR={fpr[eer_threshold_idx]:.4f}, FNR={fnr[eer_threshold_idx]:.4f}")
+    print(f"Calculated EER: {eer:.4f} at threshold: {thresholds[eer_threshold_idx if eer_threshold_idx < len(thresholds) else -1]:.4f}")
+    
+    return eer, thresholds[eer_threshold_idx if eer_threshold_idx < len(thresholds) else -1]
+
 def plot_performance_curves(eval_score_path, output_dir):
     import matplotlib.pyplot as plt
     import numpy as np
@@ -223,18 +257,25 @@ def plot_performance_curves(eval_score_path, output_dir):
     plt.grid(True, alpha=0.3)
     plt.savefig(os.path.join(output_dir, 'precision_recall_curve.png'), dpi=300)
     
-    # Calculate and plot FPR and FNR with EER point
-    thresholds_roc = np.append(thresholds, 1.0)  # Add a final threshold
-    fnr = 1 - tpr  # False Negative Rate = 1 - TPR
+    # Use the improved EER calculation function
+    eer, eer_threshold = compute_eer_fixed(truthful_scores, deceptive_scores)
     
-    # Find EER point (where FPR = FNR)
-    eer_index = np.nanargmin(np.absolute(fpr - fnr))
-    eer = (fpr[eer_index] + fnr[eer_index]) / 2
-    eer_threshold = thresholds_roc[eer_index]
+    # Calculate FPR and FNR for the main plots
+    # Get new FPR and FNR specifically for this plot to avoid dimension mismatch
+    fpr_plot, tpr_plot, thresholds_plot = roc_curve(y_true, y_scores)
+    fnr_plot = 1 - tpr_plot
+    
+    # Ensure arrays are of the same length for plotting
+    # By default, thresholds from roc_curve is one element shorter than fpr/tpr
+    if len(fpr_plot) > len(thresholds_plot):
+        fpr_plot = fpr_plot[:-1]
+        fnr_plot = fnr_plot[:-1]
+    
+    print(f"For plotting - FPR shape: {fpr_plot.shape}, Thresholds shape: {thresholds_plot.shape}")
     
     plt.figure(figsize=(10, 8))
-    plt.plot(thresholds_roc, fpr, color='red', lw=2, label='False Positive Rate (FPR)')
-    plt.plot(thresholds_roc, fnr, color='blue', lw=2, label='False Negative Rate (FNR)')
+    plt.plot(thresholds_plot, fpr_plot, color='red', lw=2, label='False Positive Rate (FPR)')
+    plt.plot(thresholds_plot, fnr_plot, color='blue', lw=2, label='False Negative Rate (FNR)')
     plt.scatter([eer_threshold], [eer], color='purple', s=100, label=f'EER = {eer:.3f} at threshold = {eer_threshold:.3f}')
     plt.xlabel('Threshold')
     plt.ylabel('Error Rate')
@@ -370,6 +411,7 @@ def plot_performance_curves(eval_score_path, output_dir):
     }
     
     return results
+  
 
 
 def calculate_tDCF_EER(cm_scores_file,
@@ -552,6 +594,8 @@ def compute_eer_fixed(target_scores, nontarget_scores):
     print(f"Calculated EER: {eer:.4f} at threshold: {thresholds[eer_threshold_idx]:.4f}")
     
     return eer, thresholds[eer_threshold_idx]
+
+
 def compute_tDCF(bonafide_score_cm, spoof_score_cm, Pfa_asv, Pmiss_asv,
                  Pmiss_spoof_asv, cost_model, print_cost):
     """
