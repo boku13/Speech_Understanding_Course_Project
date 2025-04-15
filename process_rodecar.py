@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def create_directory_structure():
     """Create the required directory structure for the dataset."""
-    base_dir = "romanian_dataset"
+    base_dir = "romanian_dataset_24kb"
     splits = ["train", "val", "test"]
     classes = ["Deceptive", "Truthful"]
     
@@ -53,9 +53,9 @@ def process_audio_file(audio_path, annotation_path, output_base_dir, file_counte
         counter = file_counter[class_name]
         filename = f"trial_{'lie' if is_deceptive else 'truth'}_{counter:03d}.mp3"
         
-        # Save the segment with high bitrate (256kbps)
+        # Save the segment with low bitrate (24kbps) for smaller file size
         output_path = os.path.join(output_base_dir, class_name, filename)
-        segment.export(output_path, format="mp3", bitrate="256k")
+        segment.export(output_path, format="mp3", bitrate="24k")
         
         processed_segments.append({
             'filename': filename,
@@ -70,7 +70,7 @@ def process_audio_file(audio_path, annotation_path, output_base_dir, file_counte
 def process_single_file_for_verification(file_name):
     """Process only a single file without randomization for verification purposes."""
     # Create verification directory
-    base_dir = "romanian_dataset"
+    base_dir = "romanian_dataset_24kb"
     verification_dir = os.path.join(base_dir, f"verification_{file_name}")
     classes = ["Deceptive", "Truthful"]
     
@@ -124,9 +124,9 @@ def process_single_file_for_verification(file_name):
         class_name = "Deceptive" if is_deceptive else "Truthful"
         filename = f"segment_{idx:03d}_{'lie' if is_deceptive else 'truth'}.mp3"
         
-        # Save the segment with high bitrate (256kbps)
+        # Save the segment with low bitrate (24kbps) for smaller file size
         output_path = os.path.join(verification_dir, class_name, filename)
-        segment.export(output_path, format="mp3", bitrate="256k")
+        segment.export(output_path, format="mp3", bitrate="24k")
         
         processed_segments.append({
             'original_index': idx,
@@ -157,7 +157,7 @@ def process_single_file_for_verification(file_name):
 
 def analyze_duration_distribution():
     """Analyze the distribution of audio segment durations in the dataset."""
-    base_dir = "romanian_dataset"
+    base_dir = "romanian_dataset_24kb"
     annotation_dir = "raw_data/RODeCAR/RODeCAR/Annotation"
     
     # Collect all segment durations from annotation files
@@ -300,7 +300,7 @@ def main_create_dataset():
     # Paths
     annotation_dir = "raw_data/RODeCAR/RODeCAR/Annotation"
     audio_dir = "raw_data/RODeCAR/RODeCAR/Files_WAV"
-    output_base_dir = "romanian_dataset"
+    output_base_dir = "romanian_dataset_24kb"
     
     # Get all CSV files (excluding RODeCAR_bff.xlsx and silence_list.xlsx)
     csv_files = [f for f in os.listdir(annotation_dir) if f.endswith('.csv')]
