@@ -5,61 +5,6 @@ import os
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc
 
-def calculate_metrics(eval_score_path):
-    """Calculate performance metrics from evaluation scores file"""
-    # Check if file exists
-    if not os.path.exists(eval_score_path):
-        raise FileNotFoundError(f"Score file not found: {eval_score_path}")
-    
-    # Read scores file
-    with open(eval_score_path, "r") as f:
-        lines = f.readlines()
-    
-    filenames = []
-    predictions = []
-    scores = []
-    
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) >= 3:
-            filename = parts[0]
-            prediction = parts[1]
-            score = float(parts[2])
-            
-            filenames.append(filename)
-            predictions.append(prediction)
-            scores.append(score)
-    
-    # Extract ground truth from filenames
-    # Since your folders are organized as Truthful/file.wav and Deceptive/file.wav
-    ground_truth = []
-    for filename in filenames:
-        # The base filename might contain path information like "Truthful/sample.wav"
-        # or it might just be the filename with path info stripped
-        if "truth" in filename.lower() or "truthful" in filename.lower():
-            ground_truth.append("Truthful")
-        elif "lie" in filename.lower() or "deceptive" in filename.lower():
-            ground_truth.append("Deceptive")
-        else:
-            # If path info is stripped, we can't determine ground truth from filename
-            # You might need to adjust this based on how filenames are stored
-            print(f"Warning: Cannot determine ground truth from filename: {filename}")
-            # Default to opposite of prediction as a fallback (for debugging only)
-            ground_truth.append("Deceptive" if prediction == "Truthful" else "Truthful")
-    
-    # Convert to binary for sklearn metrics
-    y_true = np.array([1 if label == "Truthful" else 0 for label in ground_truth])
-    y_pred = np.array([1 if label == "Truthful" else 0 for label in predictions])
-    
-    # Calculate metrics
-    metrics = {
-        "accuracy": accuracy_score(y_true, y_pred),
-        "precision": precision_score(y_true, y_pred, zero_division=0),
-        "recall": recall_score(y_true, y_pred, zero_division=0),
-        "f1": f1_score(y_true, y_pred, zero_division=0)
-    }
-    
-    return metrics
 
 def calculate_lie_detection_metrics(eval_score_path, output_file=None):
     """
@@ -133,7 +78,7 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
     truthful_scores = y_scores[y_true == 1]
     deceptive_scores = y_scores[y_true == 0]
     # print("heheheheheheheheheheheheheheheheheheheheheheheheh")
-    
+    #This allows the EER calculation to determine at what threshold the classification errors balance out between the two classes.
     
     if len(truthful_scores) > 0 and len(deceptive_scores) > 0:
         eer, eer_threshold = compute_eer_fixed(truthful_scores, deceptive_scores)
@@ -196,6 +141,236 @@ def calculate_lie_detection_metrics(eval_score_path, output_file=None):
         print(f"Detailed metrics saved to {output_file}")
     
     return metrics
+
+
+
+def plot_performance_curves(eval_score_path, output_dir):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
+    import seaborn as sns
+    import os
+    
+    # Make sure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Read scores file
+    with open(eval_score_path, "r") as f:
+        lines = f.readlines()
+    
+    filenames = []
+    predictions = []
+    scores = []
+    
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) >= 3:
+            filename = parts[0]
+            prediction = parts[1]
+            score = float(parts[2])
+            
+            filenames.append(filename)
+            predictions.append(prediction)
+            scores.append(score)
+    
+    # Extract ground truth from filenames
+    ground_truth = []
+    for filename in filenames:
+        if "truth" in filename.lower() or "truthful" in filename.lower():
+            ground_truth.append("Truthful")
+        elif "lie" in filename.lower() or "deceptive" in filename.lower():
+            ground_truth.append("Deceptive")
+        else:
+            print(f"Warning: Cannot determine ground truth from filename: {filename}")
+    
+    # Convert to binary for metrics calculation
+    y_true = np.array([1 if label == "Truthful" else 0 for label in ground_truth])
+    y_pred = np.array([1 if label == "Truthful" else 0 for label in predictions])
+    y_scores = np.array(scores)
+    
+    # Separate scores for truthful and deceptive samples
+    truthful_scores = y_scores[y_true == 1]
+    deceptive_scores = y_scores[y_true == 0]
+    
+    # Plot ROC curve
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    roc_auc = auc(fpr, tpr)
+    
+    plt.figure(figsize=(10, 8))
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend(loc="lower right")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(output_dir, 'roc_curve.png'), dpi=300)
+    
+    # Plot Precision-Recall curve
+    precision, recall, _ = precision_recall_curve(y_true, y_scores)
+    avg_precision = average_precision_score(y_true, y_scores)
+    
+    plt.figure(figsize=(10, 8))
+    plt.plot(recall, precision, color='green', lw=2, label=f'PR curve (AP = {avg_precision:.3f})')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall Curve')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.legend(loc="lower left")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(output_dir, 'precision_recall_curve.png'), dpi=300)
+    
+    # Calculate and plot FPR and FNR with EER point
+    thresholds_roc = np.append(thresholds, 1.0)  # Add a final threshold
+    fnr = 1 - tpr  # False Negative Rate = 1 - TPR
+    
+    # Find EER point (where FPR = FNR)
+    eer_index = np.nanargmin(np.absolute(fpr - fnr))
+    eer = (fpr[eer_index] + fnr[eer_index]) / 2
+    eer_threshold = thresholds_roc[eer_index]
+    
+    plt.figure(figsize=(10, 8))
+    plt.plot(thresholds_roc, fpr, color='red', lw=2, label='False Positive Rate (FPR)')
+    plt.plot(thresholds_roc, fnr, color='blue', lw=2, label='False Negative Rate (FNR)')
+    plt.scatter([eer_threshold], [eer], color='purple', s=100, label=f'EER = {eer:.3f} at threshold = {eer_threshold:.3f}')
+    plt.xlabel('Threshold')
+    plt.ylabel('Error Rate')
+    plt.title('FPR-FNR Curves with Equal Error Rate (EER) Point')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.0])
+    plt.legend(loc="best")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(output_dir, 'eer_curve.png'), dpi=300)
+    
+    # Generate histograms of scores for truthful and deceptive classes
+    plt.figure(figsize=(10, 8))
+    bins = np.linspace(0, 1, 50)
+    plt.hist(truthful_scores, bins=bins, alpha=0.5, label='Truthful', color='green')
+    plt.hist(deceptive_scores, bins=bins, alpha=0.5, label='Deceptive', color='red')
+    plt.axvline(x=eer_threshold, color='black', linestyle='--', label=f'EER Threshold = {eer_threshold:.3f}')
+    plt.xlabel('Score (Truthful Probability)')
+    plt.ylabel('Count')
+    plt.title('Distribution of Scores by Class')
+    plt.legend(loc="upper center")
+    plt.grid(True, alpha=0.3)
+    plt.savefig(os.path.join(output_dir, 'score_distribution.png'), dpi=300)
+    
+    # NEW: Create Confusion Confidence Matrix
+    # Define confidence bins
+    confidence_bins = 5  # Number of confidence level divisions
+    bin_edges = np.linspace(0, 1, confidence_bins+1)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    
+    # We need to transform scores so they represent confidence in the predicted class
+    # For predictions of "Truthful" (y_pred=1), the confidence is the score
+    # For predictions of "Deceptive" (y_pred=0), the confidence is 1-score
+    confidence_scores = np.where(y_pred == 1, y_scores, 1 - y_scores)
+    
+    # Initialize confusion confidence matrix
+    # Rows are true classes (0: Deceptive, 1: Truthful)
+    # Columns are predicted classes and confidence levels
+    confusion_confidence = np.zeros((2, 2*confidence_bins))
+    
+    # Fill the confusion confidence matrix
+    for true_class in [0, 1]:  # 0: Deceptive, 1: Truthful
+        for pred_class in [0, 1]:  # 0: Deceptive, 1: Truthful
+            mask = (y_true == true_class) & (y_pred == pred_class)
+            if np.sum(mask) > 0:
+                # Get confidence scores for this combination
+                these_confidences = confidence_scores[mask]
+                # Bin the confidences
+                hist, _ = np.histogram(these_confidences, bins=bin_edges)
+                # Fill the appropriate slice of the matrix
+                start_col = pred_class * confidence_bins
+                end_col = (pred_class + 1) * confidence_bins
+                confusion_confidence[true_class, start_col:end_col] = hist
+    
+    # Normalize confusion confidence matrix by row (true class)
+    row_sums = confusion_confidence.sum(axis=1, keepdims=True)
+    confusion_confidence_norm = np.zeros_like(confusion_confidence, dtype=float)
+    for i in range(confusion_confidence.shape[0]):
+        if row_sums[i] > 0:
+            confusion_confidence_norm[i] = confusion_confidence[i] / row_sums[i]
+    
+    # Create labels for the heatmap
+    confidence_labels = []
+    for pred_class in ["Deceptive", "Truthful"]:
+        for conf_level in range(confidence_bins):
+            lower = bin_edges[conf_level]
+            upper = bin_edges[conf_level + 1]
+            confidence_labels.append(f"{pred_class}\n{lower:.1f}-{upper:.1f}")
+    
+    true_class_labels = ["Deceptive", "Truthful"]
+    
+    # Plot the confusion confidence matrix
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(confusion_confidence_norm, annot=confusion_confidence, fmt='g', cmap='viridis',
+                xticklabels=confidence_labels, yticklabels=true_class_labels, cbar_kws={'label': 'Proportion of True Class'})
+    plt.xlabel('Predicted Class and Confidence Level')
+    plt.ylabel('True Class')
+    plt.title('Confusion Confidence Matrix')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'confusion_confidence_matrix.png'), dpi=300)
+    
+    # Create a simpler, more readable version with fewer bins
+    # This version uses just 3 confidence levels: low, medium, high
+    simple_confidence_bins = 3
+    simple_bin_edges = np.linspace(0, 1, simple_confidence_bins+1)
+    simple_bin_names = ["Low", "Medium", "High"]
+    
+    # Initialize simpler confusion confidence matrix
+    simple_conf_conf = np.zeros((2, 2*simple_confidence_bins))
+    
+    # Fill the simpler confusion confidence matrix
+    for true_class in [0, 1]:  # 0: Deceptive, 1: Truthful
+        for pred_class in [0, 1]:  # 0: Deceptive, 1: Truthful
+            mask = (y_true == true_class) & (y_pred == pred_class)
+            if np.sum(mask) > 0:
+                # Get confidence scores for this combination
+                these_confidences = confidence_scores[mask]
+                # Bin the confidences
+                hist, _ = np.histogram(these_confidences, bins=simple_bin_edges)
+                # Fill the appropriate slice of the matrix
+                start_col = pred_class * simple_confidence_bins
+                end_col = (pred_class + 1) * simple_confidence_bins
+                simple_conf_conf[true_class, start_col:end_col] = hist
+    
+    # Normalize by row (true class)
+    simple_row_sums = simple_conf_conf.sum(axis=1, keepdims=True)
+    simple_conf_conf_norm = np.zeros_like(simple_conf_conf, dtype=float)
+    for i in range(simple_conf_conf.shape[0]):
+        if simple_row_sums[i] > 0:
+            simple_conf_conf_norm[i] = simple_conf_conf[i] / simple_row_sums[i]
+    
+    # Create labels for the simpler heatmap
+    simple_confidence_labels = []
+    for pred_class in ["Deceptive", "Truthful"]:
+        for conf_level in simple_bin_names:
+            simple_confidence_labels.append(f"{pred_class}\n{conf_level}")
+    
+    # Plot the simpler confusion confidence matrix
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(simple_conf_conf_norm, annot=simple_conf_conf, fmt='g', cmap='viridis',
+                xticklabels=simple_confidence_labels, yticklabels=true_class_labels, cbar_kws={'label': 'Proportion of True Class'})
+    plt.xlabel('Predicted Class and Confidence Level')
+    plt.ylabel('True Class')
+    plt.title('Confusion Confidence Matrix (Simplified)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'confusion_confidence_matrix_simple.png'), dpi=300)
+    
+    # Summary results
+    results = {
+        'auc': roc_auc,
+        'average_precision': avg_precision,
+        'eer': eer,
+        'eer_threshold': eer_threshold
+    }
+    
+    return results
+
 
 def calculate_tDCF_EER(cm_scores_file,
                        asv_score_file,

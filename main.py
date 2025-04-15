@@ -24,7 +24,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchcontrib.optim import SWA
 
 from data_utils import (Dataset_RLDD_train, Dataset_RLDD_devNeval, lie_list)
-from evaluation import compute_eer_fixed, calculate_tDCF_EER, calculate_lie_detection_metrics
+from evaluation import compute_eer_fixed, calculate_tDCF_EER, calculate_lie_detection_metrics, plot_performance_curves
 from utils import create_optimizer, seed_worker, set_seed, str_to_bool
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -98,7 +98,7 @@ def main(args: argparse.Namespace) -> None:
         # Calculate comprehensive metrics
         metrics = calculate_lie_detection_metrics(
             eval_score_path, 
-            output_file=model_tag / "detailed_evaluation_results.txt"
+            output_file=model_tag / "detailed_test_evaluation_results.txt"
         )
         
         print("\n" + "="*50)
@@ -113,7 +113,7 @@ def main(args: argparse.Namespace) -> None:
         print("="*50 + "\n")
         
         # Write summary results to file
-        with open(model_tag / "evaluation_summary.json", "w") as f:
+        with open(model_tag / "test_evaluation_summary.json", "w") as f:
             json.dump(metrics, f, indent=4)
         
         print("DONE.")
@@ -226,7 +226,7 @@ def main(args: argparse.Namespace) -> None:
             # Calculate comprehensive metrics
             eval_metrics = calculate_lie_detection_metrics(
                 eval_score_path,
-                output_file=metric_path / f"eval_metrics_epoch_{epoch}.txt"
+                output_file=metric_path / f"test_metrics_epoch_{epoch}.txt"
             )
             
             eval_acc = eval_metrics["accuracy"]
@@ -273,6 +273,17 @@ def main(args: argparse.Namespace) -> None:
         output_file=model_tag / "final_evaluation_results.txt"
     )
     
+    print("Generating performance plots with Confusion Confidence Matrix...")
+    plot_results = plot_performance_curves(
+    eval_score_path,
+    model_tag / "performance_plots"
+    )
+
+    print(f"Performance plots saved to {model_tag / 'performance_plots'}")
+    print(f"ROC AUC: {plot_results['auc']:.3f}")
+    print(f"EER: {plot_results['eer']*100:.3f}% at threshold {plot_results['eer_threshold']:.3f}")
+
+
     eval_acc = eval_metrics["accuracy"]
     eval_eer = eval_metrics["eer"]
     
