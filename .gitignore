@@ -174,3 +174,5 @@ cython_debug/
 .pypirc
 *.pth
 exp_result/
+raw_data
+romanian_dataset
