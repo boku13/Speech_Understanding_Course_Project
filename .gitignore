@@ -175,4 +175,4 @@ cython_debug/
 *.pth
 exp_result/
 raw_data
-romanian_dataset
+romanian_dataset_24kb/
