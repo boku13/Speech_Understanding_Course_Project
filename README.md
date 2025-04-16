@@ -135,16 +135,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Shyam Sathvik (b22ee036@iitj.ac.in)
 - Neermita Bhattacharya (b22cs092@iitj.ac.in)
 
-## License
-
-This project is licensed under the [LICENSE] - see the LICENSE file for details.
-
-## Acknowledgments
-
-- [Acknowledgment of any third-party libraries, frameworks, or datasets used]
-- [Acknowledgment of academic advisors or institutions]
-
-
 ## References
 
 - https://arxiv.org/pdf/2110.01200
