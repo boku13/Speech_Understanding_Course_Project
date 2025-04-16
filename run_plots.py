@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from generate_plots import plot_performance_curves
+from main import plot_performance_curves
 
 # Set the exact paths as used in the original main.py
 eval_score_path = Path("Rodecar_Results/LieDetection_AASIST_ep50_bs32/eval_scores_using_best_dev_model.txt")
