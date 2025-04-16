@@ -1,9 +1,9 @@
-# Speech_Understanding_Course_Project
+# Speech Understanding Course Project
 
 ![Poster](https://github.com/user-attachments/assets/5ad8d773-2b08-455e-bd64-cbba9efce473)
 
 
-# AASIST-Based Speech Lie Detection
+# Graph Attention Network (AASIST)-Based Speech Lie Detection
 
 This repository contains the implementation of a speech-based lie detection system leveraging the AASIST (Audio Anti-Spoofing System) framework. The model is designed to analyze speech recordings and classify them as either truthful or deceptive based on acoustic patterns.
 
