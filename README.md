@@ -1,5 +1,7 @@
 # Speech_Understanding_Course_Project
-Speech_Understanding_Course_Project
+
+![Poster](https://github.com/user-attachments/assets/5ad8d773-2b08-455e-bd64-cbba9efce473)
+
 
 # AASIST-Based Speech Lie Detection
 
