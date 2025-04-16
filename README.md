@@ -31,21 +31,21 @@ The system is trained and evaluated on two main datasets:
 ## Repository Structure
 
 ```
-├── main.py # Main training and evaluation script
-├── evaluation.py # Performance evaluation metrics and visualization
-├── data_utils.py # Data loading and preprocessing utilities
-├── free_gpu_memory.py # Utility for GPU memory management
-├── process_rodecar.py # RODeCAR dataset processing script
-├── utils.py # General utility functions
-├── models/ # Model architecture definitions
-├── config/ # Configuration files
-├── dataset/ # Dataset storage
-├── romanian_dataset/ # RODeCAR dataset
-├── romanian_dataset_24kb/ # Preprocessed RODeCAR dataset
-├── raw_data/ # Raw dataset files
-├── RLDD_Results/ # Results for RLDD experiments
-├── exp_result_rodecar/ # Results for RODeCAR experiments
-└── README.md # This file
+├── LICENSE                         # Project license
+├── models/                         # Model architecture definitions
+│   ├── AASIST.py                   # AASIST model implementation
+│   └── AASIST.pth                  # Pre-trained model weights
+├── config/                         # Configuration files
+├── utils/                          # Utility functions for training
+├── notebooks/                      # Jupyter notebooks containing experiments and plots
+├── data/                           # Dataset directory containing RLDD and Rodecar
+├── results/                        # Results saved from the best experiments (metrics and models)
+├── experiment_dump/                # Experiment outputs
+├── train/                          # Training scripts
+├── visualizations/                 # Generated architecture visualizations
+│   ├── aasist_diagram.png          # Architecture diagram
+│   └── visualize_aasist_diagram.py # Diagram generation script
+└── README.md                       # This file
 ```
 
 
