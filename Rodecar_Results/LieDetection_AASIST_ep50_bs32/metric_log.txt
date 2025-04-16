@@ -1,0 +1,14 @@
+=====
+epoch000, best accuracy: 68.30%, best EER: 32.04%
+epoch001, best accuracy: 68.64%, best EER: 29.65%
+epoch002, best accuracy: 74.77%, best EER: 26.14%
+epoch003, best EER: 23.52%
+epoch004, best accuracy: 77.05%, best EER: 22.27%
+epoch007, best accuracy: 78.98%, best EER: 21.15%
+epoch010, best EER: 20.68%
+epoch011, best accuracy: 81.02%, best EER: 19.42%
+epoch012, best accuracy: 81.48%, best EER: 19.32%
+epoch015, best accuracy: 82.16%, best EER: 18.53%
+epoch019, best accuracy: 82.61%, best EER: 17.50%
+epoch027, best accuracy: 82.73%
+epoch034, best EER: 17.27%
